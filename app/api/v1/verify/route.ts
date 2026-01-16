@@ -73,18 +73,21 @@ export async function POST(request: NextRequest) {
     // 5. Perform validation checks
     const syntaxCheck = validateSyntax(email);
 
-    let domainCheck = { valid: false, message: '', mx_records: [] as string[] };
+    let domainCheck: { valid: boolean; message: string; mx_records?: string[]; error?: string } = { valid: false, message: '' };
     let smtpCheck = { valid: false, message: '' };
     let disposableCheck = { is_disposable: false, message: '' };
     let roleCheck = { is_role: false, message: '' };
 
+    // Only continue if syntax is valid
     if (syntaxCheck.valid) {
+      // Parallel checks
       [domainCheck, disposableCheck, roleCheck] = await Promise.all([
         validateDomain(domain),
         isDisposable(domain),
         Promise.resolve(isRoleBased(email)),
       ]);
 
+      // SMTP check only if not quick mode and domain is valid
       if (!quick && domainCheck.valid && domainCheck.mx_records && domainCheck.mx_records.length > 0) {
         smtpCheck = await verifySMTP(email, domainCheck.mx_records[0]);
       } else if (quick && domainCheck.valid) {
